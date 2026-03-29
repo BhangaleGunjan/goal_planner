@@ -14,6 +14,8 @@ from database import (
     update_plan_data
 )
 
+from fastapi.middleware.cors import CORSMiddleware
+
 # Init DB on startup
 init_db()
 
@@ -46,6 +48,14 @@ class AdaptRequest(BaseModel):
     task_states: dict  # {"0-0": true, "1-2": false, ...}
     going_well: str
     difficult: str
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # later put your frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ===== AUTH ROUTES =====
 
