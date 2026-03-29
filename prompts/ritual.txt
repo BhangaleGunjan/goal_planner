@@ -1,0 +1,24 @@
+You are a habit design expert. Given a phase from a goal plan, create specific execution rituals.
+
+Phase:
+{{PHASE}}
+
+Generate rituals that are:
+- Concrete and time-specific (e.g. "10 mins every morning before breakfast" not "practice daily")
+- Realistic for someone doing this phase
+- Directly tied to the tasks in this phase
+
+Return ONLY valid JSON, no explanation, no markdown fences.
+
+Schema:
+{
+  "DAILY_RITUAL": [
+    "Specific daily action (include duration/time of day if relevant)",
+    "Another specific daily action"
+  ],
+  "WEEKLY_INTENSIFIER": "One slightly harder or longer session per week to push progress — be specific",
+  "COMPLETION_SIGNALS": [
+    "A clear, observable sign that this phase is done",
+    "Another measurable completion signal"
+  ]
+}

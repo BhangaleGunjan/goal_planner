@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kairo — AI Goal Planner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=Instrument+Sans:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #080809;
+      --bg2: #0f0f11;
+      --surface: #131316;
+      --surface2: #1a1a1f;
+      --surface3: #222228;
+      --border: #27272e;
+      --border2: #33333c;
+      --accent: #e8b84b;
+      --accent-dim: #c99d38;
+      --accent-glow: rgba(232, 184, 75, 0.12);
+      --accent-glow2: rgba(232, 184, 75, 0.06);
+      --text: #eeecea;
+      --text-2: #a8a5a0;
+      --text-3: #5a5855;
+      --low: #6fcf97;
+      --medium: #e8b84b;
+      --high: #eb6060;
+      --radius: 10px;
+      --radius-lg: 16px;
+      --font-display: 'Syne', sans-serif;
+      --font-body: 'Instrument Sans', sans-serif;
+    }
+
+    html, body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 15.5px;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Ambient background */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -40%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 500px;
+      background: radial-gradient(ellipse, rgba(232,184,75,0.04) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ===== PAGES ===== */
+    .page { display: none; position: relative; z-index: 1; }
+    .page.active { display: block; }
+    .wrap { max-width: 780px; margin: 0 auto; padding: 40px 24px 120px; }
+    .wrap-sm { max-width: 420px; margin: 0 auto; padding: 80px 24px; }
+
+    /* ===== NAV ===== */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      height: 54px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 28px;
+      background: rgba(8,8,9,0.8);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo {
+      font-family: var(--font-display);
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--text);
+      cursor: pointer;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .nav-logo-dot {
+      width: 7px; height: 7px;
+      background: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent);
+    }
+    .nav-right { display: flex; align-items: center; gap: 16px; }
+    .nav-user {
+      font-size: 0.78rem;
+      color: var(--text-3);
+      font-family: var(--font-body);
+      background: var(--surface2);
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+    }
+    .nav-logout {
+      font-size: 0.78rem; color: var(--text-3);
+      background: none; border: none;
+      font-family: var(--font-body);
+      cursor: pointer; transition: color 0.15s;
+    }
+    .nav-logout:hover { color: var(--text-2); }
+
+    /* ===== TYPOGRAPHY ===== */
+    .display { font-family: var(--font-display); font-weight: 700; }
+    h2 { font-family: var(--font-display); font-size: 1.4rem; font-weight: 600; }
+
+    /* ===== CARDS ===== */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      margin-bottom: 12px;
+      animation: fadeUp 0.4s ease both;
+    }
+    .card-label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-3);
+      margin-bottom: 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .card-label::before {
+      content: '';
+      display: inline-block;
+      width: 14px; height: 1px;
+      background: var(--border2);
+    }
+
+    /* ===== INPUTS ===== */
+    .field { margin-bottom: 14px; }
+    .field-label { display: block; font-size: 0.75rem; color: var(--text-3); margin-bottom: 6px; font-weight: 500; letter-spacing: 0.02em; }
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 0.92rem;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow2);
+    }
+    input::placeholder { color: var(--text-3); }
+    .input-row { display: flex; gap: 8px; }
+
+    /* ===== BUTTONS ===== */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 9px 18px;
+      border-radius: var(--radius);
+      font-family: var(--font-display);
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      cursor: pointer; border: none;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #0a0800;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: #f0c55a;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(232,184,75,0.25);
+    }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-2);
+      border: 1px solid var(--border2);
+    }
+    .btn-ghost:hover { border-color: var(--text-3); color: var(--text); }
+    .btn-danger {
+      background: transparent;
+      color: var(--high);
+      border: 1px solid rgba(235,96,96,0.2);
+    }
+    .btn-danger:hover { background: rgba(235,96,96,0.06); }
+    .btn-sm { padding: 6px 13px; font-size: 0.75rem; }
+    .btn-full { width: 100%; justify-content: center; }
+    .btn-icon { width: 30px; height: 30px; padding: 0; justify-content: center; border-radius: 8px; }
+
+    /* ===== TOGGLE ===== */
+    .toggle-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+    .toggle-label { font-size: 0.78rem; color: var(--text-3); cursor: pointer; user-select: none; transition: color 0.15s; }
+    .toggle-label:hover { color: var(--text-2); }
+    .toggle-switch { position: relative; width: 34px; height: 18px; cursor: pointer; flex-shrink: 0; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-track { position: absolute; inset: 0; background: var(--surface3); border: 1px solid var(--border2); border-radius: 18px; transition: all 0.2s; }
+    .toggle-track::after { content: ''; position: absolute; width: 11px; height: 11px; left: 3px; top: 3px; background: var(--text-3); border-radius: 50%; transition: all 0.2s; }
+    .toggle-switch input:checked + .toggle-track { background: var(--accent); border-color: var(--accent); }
+    .toggle-switch input:checked + .toggle-track::after { transform: translateX(16px); background: #0a0800; }
+
+    /* ===== STATUS / ERRORS ===== */
+    .status-bar { display: flex; align-items: center; gap: 10px; color: var(--text-3); font-size: 0.82rem; padding: 10px 0; }
+    .spinner { width: 14px; height: 14px; border: 1.5px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.65s linear infinite; flex-shrink: 0; }
+    .error-box { background: rgba(235,96,96,0.06); border: 1px solid rgba(235,96,96,0.2); color: #f08080; border-radius: var(--radius); padding: 10px 14px; font-size: 0.82rem; margin-top: 10px; }
+    .success-box { background: var(--accent-glow); border: 1px solid rgba(232,184,75,0.2); color: var(--accent); border-radius: var(--radius); padding: 10px 14px; font-size: 0.82rem; margin-bottom: 14px; }
+
+    /* ===== AUTH ===== */
+    .auth-eyebrow { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
+    .auth-headline { font-family: var(--font-display); font-size: 2rem; font-weight: 700; line-height: 1.15; margin-bottom: 6px; }
+    .auth-sub { font-size: 0.85rem; color: var(--text-3); margin-bottom: 36px; }
+    .auth-tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 22px; }
+    .auth-tab { padding: 8px 16px; font-size: 0.82rem; font-weight: 500; color: var(--text-3); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; font-family: var(--font-display); }
+    .auth-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    /* ===== DASHBOARD ===== */
+    .dash-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 14px; }
+    .dash-greeting { font-family: var(--font-display); font-size: 1.3rem; font-weight: 600; }
+    .dash-sub { font-size: 0.82rem; color: var(--text-3); margin-top: 2px; }
+
+    .plan-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px 22px;
+      cursor: pointer;
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+      animation: fadeUp 0.4s ease both;
+      margin-bottom: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+    .plan-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(232,184,75,0.15), transparent);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .plan-card:hover { border-color: var(--border2); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+    .plan-card:hover::before { opacity: 1; }
+    .plan-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    .plan-card-goal { font-family: var(--font-display); font-size: 1rem; font-weight: 600; line-height: 1.3; }
+    .plan-card-date { font-size: 0.72rem; color: var(--text-3); white-space: nowrap; margin-top: 2px; }
+    .plan-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .pill { display: inline-flex; align-items: center; gap: 5px; font-size: 0.72rem; color: var(--text-3); background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 3px 10px; }
+    .pill-accent { color: var(--accent); background: var(--accent-glow2); border-color: rgba(232,184,75,0.15); }
+    .progress-track { background: var(--surface3); border-radius: 3px; height: 3px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent-dim), var(--accent)); border-radius: 3px; transition: width 0.5s ease; }
+
+    .empty-state { text-align: center; padding: 64px 24px; }
+    .empty-icon { font-size: 2.5rem; margin-bottom: 14px; opacity: 0.4; }
+    .empty-title { font-family: var(--font-display); font-size: 1.1rem; margin-bottom: 6px; color: var(--text-2); }
+    .empty-sub { font-size: 0.82rem; color: var(--text-3); }
+
+    /* ===== NEW PLAN ===== */
+    .step-num { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 6px; background: var(--accent-glow); border: 1px solid rgba(232,184,75,0.2); color: var(--accent); font-size: 0.68rem; font-weight: 700; font-family: var(--font-display); flex-shrink: 0; }
+    .q-label { font-size: 0.78rem; color: var(--text-2); margin-bottom: 5px; display: block; }
+    .question-group { margin-bottom: 12px; }
+
+    /* ===== PLAN VIEW ===== */
+    .back-btn { display: inline-flex; align-items: center; gap: 6px; color: var(--text-3); font-size: 0.78rem; cursor: pointer; margin-bottom: 22px; transition: color 0.15s; background: none; border: none; font-family: var(--font-body); padding: 0; }
+    .back-btn:hover { color: var(--text-2); }
+    .plan-title { font-family: var(--font-display); font-size: 1.6rem; font-weight: 700; line-height: 1.2; margin-bottom: 20px; }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 18px; }
+    .stat-val { font-family: var(--font-display); font-size: 1.7rem; font-weight: 700; color: var(--accent); line-height: 1; }
+    .stat-key { font-size: 0.68rem; color: var(--text-3); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+
+    .action-bar { display: flex; align-items: center; justify-content: space-between; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 18px; margin-bottom: 16px; gap: 12px; flex-wrap: wrap; }
+    .action-bar-text { font-size: 0.82rem; color: var(--text-3); }
+    .action-bar-text strong { color: var(--text-2); font-weight: 500; }
+
+    .plan-actions { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+
+    /* Phase cards */
+    .phase-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 10px; overflow: hidden; animation: fadeUp 0.4s ease both; }
+    .phase-head { display: flex; align-items: center; gap: 12px; padding: 16px 20px; cursor: pointer; transition: background 0.15s; user-select: none; }
+    .phase-head:hover { background: var(--surface2); }
+    .phase-index { font-family: var(--font-display); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em; color: var(--accent); background: var(--accent-glow); border: 1px solid rgba(232,184,75,0.15); padding: 3px 8px; border-radius: 6px; flex-shrink: 0; }
+    .phase-title { font-size: 0.92rem; font-weight: 500; flex: 1; }
+    .phase-meta { font-size: 0.72rem; color: var(--text-3); }
+    .phase-chevron { color: var(--text-3); font-size: 0.75rem; transition: transform 0.2s; flex-shrink: 0; }
+    .phase-chevron.open { transform: rotate(180deg); }
+    .phase-body { padding: 0 20px 20px; display: none; }
+    .phase-body.open { display: block; }
+
+    .section-head { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-3); margin: 18px 0 10px; display: flex; align-items: center; gap: 8px; }
+    .section-head::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    /* Task cards — each task is its own card */
+    .tasks-grid { display: flex; flex-direction: column; gap: 6px; }
+    .task-card {
+      display: flex; align-items: flex-start; gap: 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .task-card:hover { border-color: var(--border2); background: var(--surface3); }
+    .task-card.done-card { opacity: 0.45; }
+    .task-checkbox {
+      width: 19px; height: 19px; border-radius: 6px;
+      border: 1.5px solid var(--border2);
+      cursor: pointer; flex-shrink: 0; margin-top: 1px;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s; background: transparent;
+    }
+    .task-checkbox.done { background: var(--accent); border-color: var(--accent); }
+    .task-checkbox.done::after { content: '✓'; font-size: 11px; color: #0a0800; font-weight: 800; }
+    .task-label { flex: 1; font-size: 0.92rem; line-height: 1.5; transition: opacity 0.2s; }
+    .task-label.done { text-decoration: line-through; }
+    .effort-badge { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.03em; padding: 3px 8px; border-radius: 5px; flex-shrink: 0; margin-top: 1px; }
+    .effort-low { color: var(--low); background: rgba(111,207,151,0.1); border: 1px solid rgba(111,207,151,0.15); }
+    .effort-medium { color: var(--medium); background: rgba(232,184,75,0.1); border: 1px solid rgba(232,184,75,0.15); }
+    .effort-high { color: var(--high); background: rgba(235,96,96,0.1); border: 1px solid rgba(235,96,96,0.15); }
+
+    /* Ritual block */
+    .ritual-block { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+    .ritual-line { display: flex; gap: 10px; font-size: 0.88rem; color: var(--text-2); line-height: 1.5; }
+    .ritual-icon { color: var(--accent); flex-shrink: 0; font-size: 0.8rem; margin-top: 2px; }
+
+    /* Intensifier block */
+    .intensifier-card {
+      background: linear-gradient(135deg, rgba(232,184,75,0.06), rgba(232,184,75,0.02));
+      border: 1px solid rgba(232,184,75,0.18);
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 0.9rem;
+      color: var(--text-2);
+      line-height: 1.5;
+      display: flex; gap: 10px; align-items: flex-start;
+    }
+    .intensifier-card::before { content: '⚡'; flex-shrink: 0; font-size: 0.85rem; }
+
+    /* Signals block */
+    .signals-block { display: flex; flex-direction: column; gap: 6px; }
+    .signal-line {
+      display: flex; gap: 10px; align-items: flex-start;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 12px;
+      font-size: 0.88rem; color: var(--text-2); line-height: 1.5;
+    }
+    .signal-icon { color: var(--accent); flex-shrink: 0; font-size: 0.75rem; margin-top: 3px; }
+
+    .legend-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.72rem; color: var(--text-3); }
+    .ldot { width: 6px; height: 6px; border-radius: 50%; }
+
+    /* ===== MODAL ===== */
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 24px; backdrop-filter: blur(6px); }
+    .modal { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-lg); padding: 28px; max-width: 460px; width: 100%; animation: fadeUp 0.2s ease both; }
+    .modal-title { font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; margin-bottom: 4px; }
+    .modal-sub { font-size: 0.82rem; color: var(--text-3); margin-bottom: 22px; line-height: 1.5; }
+    .modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+    .hidden { display: none !important; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<!-- ==================== AUTH ==================== -->
+<div id="page-auth" class="page active">
+  <div class="wrap-sm">
+    <div style="margin-bottom:36px;">
+      <div class="auth-eyebrow">AI Goal Planner</div>
+      <div class="auth-headline">Turn ambition into<br>structured action.</div>
+      <div class="auth-sub">Generate personalized plans, track progress, and adapt as you grow.</div>
+    </div>
+    <div class="card" style="padding:24px;">
+      <div class="auth-tabs">
+        <div class="auth-tab active" id="tab-login" onclick="switchTab('login')">Sign in</div>
+        <div class="auth-tab" id="tab-register" onclick="switchTab('register')">Create account</div>
+      </div>
+      <div class="field">
+        <label class="field-label">Username</label>
+        <input type="text" id="auth-user" placeholder="your username" autocomplete="username" />
+      </div>
+      <div class="field">
+        <label class="field-label">Password</label>
+        <input type="password" id="auth-pass" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+      <button class="btn btn-primary btn-full" id="btn-auth" onclick="submitAuth()" style="margin-top:4px;">Sign in</button>
+      <div id="auth-err" class="error-box hidden"></div>
+      <div id="auth-status" class="status-bar hidden"><div class="spinner"></div><span>Please wait…</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== DASHBOARD ==================== -->
+<div id="page-dash" class="page">
+  <nav>
+    <div class="nav-logo" onclick="showDash()">
+      <div class="nav-logo-dot"></div>
+      Kairo
+    </div>
+    <div class="nav-right">
+      <span class="nav-user" id="nav-u"></span>
+      <button class="nav-logout" onclick="logout()">Sign out</button>
+    </div>
+  </nav>
+  <div class="wrap">
+    <div class="dash-top">
+      <div>
+        <div class="dash-greeting" id="dash-greeting">Your Plans</div>
+        <div class="dash-sub">Track your goals, build your streaks.</div>
+      </div>
+      <button class="btn btn-primary" onclick="showNewPlan()">+ New Plan</button>
+    </div>
+    <div id="plans-container"><div class="status-bar"><div class="spinner"></div><span>Loading…</span></div></div>
+  </div>
+</div>
+
+<!-- ==================== NEW PLAN ==================== -->
+<div id="page-new" class="page">
+  <nav>
+    <div class="nav-logo" onclick="showDash()"><div class="nav-logo-dot"></div>Kairo</div>
+    <div class="nav-right">
+      <span class="nav-user" id="nav-u2"></span>
+      <button class="nav-logout" onclick="logout()">Sign out</button>
+    </div>
+  </nav>
+  <div class="wrap" style="max-width:640px;">
+
+    <div id="np-goal-card" class="card">
+      <div class="card-label"><span class="step-num">1</span> Define your goal</div>
+      <div class="input-row">
+        <input type="text" id="np-goal-input" placeholder="e.g. Learn Spanish, Run a 5K, Build a side project…" maxlength="300" />
+        <button class="btn btn-primary" id="np-next-btn" onclick="npNext()">Next →</button>
+      </div>
+      <div class="toggle-row">
+        <label class="toggle-switch">
+          <input type="checkbox" id="np-toggle" checked onchange="npToggleLabel()" />
+          <span class="toggle-track"></span>
+        </label>
+        <span class="toggle-label" id="np-toggle-txt" onclick="document.getElementById('np-toggle').click()">
+          Personalize with a few questions
+        </span>
+      </div>
+      <div id="np-goal-err" class="error-box hidden"></div>
+    </div>
+
+    <div id="np-status-bar" class="status-bar hidden" style="padding:12px 0;">
+      <div class="spinner"></div><span id="np-status-txt">Analyzing your goal…</span>
+    </div>
+    <div id="np-gen-err" class="error-box hidden"></div>
+
+    <div id="np-q-card" class="card hidden">
+      <div class="card-label"><span class="step-num">2</span> Quick context</div>
+      <div id="np-q-container"></div>
+      <div style="display:flex;gap:8px;margin-top:18px;">
+        <button class="btn btn-primary" id="np-gen-btn" onclick="npGenerate()">Generate Plan →</button>
+        <button class="btn btn-ghost" onclick="showNewPlan()">Start over</button>
+      </div>
+    </div>
+
+    <div id="np-preview-wrap" class="hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div style="font-size:0.68rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-3);margin-bottom:4px;">Plan ready</div>
+          <div style="font-family:var(--font-display);font-size:1.3rem;font-weight:700;" id="np-preview-title"></div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="showNewPlan()">Discard</button>
+          <button class="btn btn-primary btn-sm" id="np-save-btn" onclick="npSave()">Save Plan →</button>
+        </div>
+      </div>
+      <div class="legend-row">
+        <div class="legend-item"><span class="ldot" style="background:var(--low)"></span>Easy</div>
+        <div class="legend-item"><span class="ldot" style="background:var(--medium)"></span>Moderate</div>
+        <div class="legend-item"><span class="ldot" style="background:var(--high)"></span>Hard</div>
+      </div>
+      <div id="np-preview-phases"></div>
+      <div id="np-save-status" class="status-bar hidden"><div class="spinner"></div><span>Saving…</span></div>
+      <div id="np-save-err" class="error-box hidden"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ==================== PLAN VIEW ==================== -->
+<div id="page-plan" class="page">
+  <nav>
+    <div class="nav-logo" onclick="showDash()"><div class="nav-logo-dot"></div>Kairo</div>
+    <div class="nav-right">
+      <span class="nav-user" id="nav-u3"></span>
+      <button class="nav-logout" onclick="logout()">Sign out</button>
+    </div>
+  </nav>
+  <div class="wrap">
+    <button class="back-btn" onclick="showDash()">← Back</button>
+    <div class="plan-title" id="pv-title">Loading…</div>
+
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-val" id="pv-streak">0</div><div class="stat-key">🔥 Streak</div></div>
+      <div class="stat-card"><div class="stat-val" id="pv-done">—</div><div class="stat-key">Tasks Done</div></div>
+      <div class="stat-card"><div class="stat-val" id="pv-pct">0%</div><div class="stat-key">Complete</div></div>
+    </div>
+
+    <div class="action-bar">
+      <span class="action-bar-text" id="pv-checkin-text">Check in to keep your streak alive</span>
+      <button class="btn btn-primary btn-sm" id="pv-checkin-btn" onclick="doCheckin()">Check in ✓</button>
+    </div>
+
+    <div class="plan-actions">
+      <button class="btn btn-ghost btn-sm" id="pv-adapt-btn" onclick="openAdapt()">✦ Adapt Plan</button>
+      <button class="btn btn-danger btn-sm" onclick="confirmDelete()">Delete</button>
+    </div>
+
+    <div id="pv-phases"></div>
+  </div>
+</div>
+
+<!-- ==================== ADAPT MODAL ==================== -->
+<div id="adapt-overlay" class="overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Adapt Your Plan</div>
+    <div class="modal-sub">Tell me what's working and what isn't — I'll rewrite your remaining phases based on your real experience.</div>
+    <div class="field">
+      <label class="field-label">What's been going well?</label>
+      <input type="text" id="adapt-good" placeholder="e.g. I'm enjoying the morning sessions" />
+    </div>
+    <div class="field">
+      <label class="field-label">What's been difficult or not working?</label>
+      <input type="text" id="adapt-hard" placeholder="e.g. Tasks take too long, I only have 10 mins/day" />
+    </div>
+    <div id="adapt-err" class="error-box hidden"></div>
+    <div id="adapt-status" class="status-bar hidden"><div class="spinner"></div><span id="adapt-status-txt">Rewriting your plan…</span></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeAdapt()">Cancel</button>
+      <button class="btn btn-primary" id="adapt-btn" onclick="submitAdapt()">Adapt →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+let token = localStorage.getItem("gp_token") || null;
+let currentUser = localStorage.getItem("gp_user") || null;
+let authMode = "login";
+let npGoal = "", npProfile = {}, npPlanData = null;
+let pvId = null, pvTasks = {};
+
+// ============================================================
+// PAGES
+// ============================================================
+function goTo(id) {
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  window.scrollTo(0,0);
+}
+
+// ============================================================
+// AUTH
+// ============================================================
+function switchTab(mode) {
+  authMode = mode;
+  document.getElementById("tab-login").classList.toggle("active", mode==="login");
+  document.getElementById("tab-register").classList.toggle("active", mode==="register");
+  document.getElementById("btn-auth").textContent = mode==="login" ? "Sign in" : "Create account";
+  hide("auth-err");
+}
+
+async function submitAuth() {
+  const u = val("auth-user"), p = val("auth-pass");
+  if (!u || !p) return showErr("auth-err","Please fill in both fields.");
+  hide("auth-err"); show("auth-status");
+  el("btn-auth").disabled = true;
+  try {
+    const r = await api(`/api/auth/${authMode}`,"POST",{username:u,password:p});
+    token = r.token; currentUser = r.username;
+    localStorage.setItem("gp_token",token);
+    localStorage.setItem("gp_user",currentUser);
+    onLogin();
+  } catch(e) { showErr("auth-err",e.message); }
+  hide("auth-status"); el("btn-auth").disabled = false;
+}
+
+function onLogin() {
+  ["nav-u","nav-u2","nav-u3"].forEach(id => { const e=el(id); if(e) e.textContent=currentUser; });
+  showDash();
+}
+
+function logout() {
+  token=null; currentUser=null;
+  localStorage.removeItem("gp_token"); localStorage.removeItem("gp_user");
+  goTo("page-auth");
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+async function showDash() {
+  goTo("page-dash");
+  el("dash-greeting").textContent = `Hey, ${currentUser}`;
+  el("plans-container").innerHTML = `<div class="status-bar"><div class="spinner"></div><span>Loading your plans…</span></div>`;
+  try {
+    const r = await api("/api/plans","GET");
+    renderDash(r.plans);
+  } catch(e) {
+    el("plans-container").innerHTML = `<div class="error-box">${e.message}</div>`;
+  }
+}
+
+function renderDash(plans) {
+  const c = el("plans-container");
+  if (!plans.length) {
+    c.innerHTML = `<div class="empty-state"><div class="empty-icon">◎</div><div class="empty-title">No plans yet</div><div class="empty-sub">Click "New Plan" to get started.</div></div>`;
+    return;
+  }
+  c.innerHTML = "";
+  plans.forEach((p,i) => {
+    const pct = p.tasks_total ? Math.round((p.tasks_done/p.tasks_total)*100) : 0;
+    const date = new Date(p.created_at).toLocaleDateString("en-IN",{day:"numeric",month:"short"});
+    const d = document.createElement("div");
+    d.className = "plan-card";
+    d.style.animationDelay = `${i*0.05}s`;
+    d.onclick = () => showPlan(p.id);
+    d.innerHTML = `
+      <div class="plan-card-top">
+        <div class="plan-card-goal">${p.goal}</div>
+        <div class="plan-card-date">${date}</div>
+      </div>
+      <div class="plan-pills">
+        <span class="pill">${p.phase_count} phases</span>
+        <span class="pill">${p.tasks_done}/${p.tasks_total} tasks</span>
+        ${p.streak > 0 ? `<span class="pill pill-accent">🔥 ${p.streak} day streak</span>` : ""}
+        <span class="pill">${pct}% done</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>`;
+    c.appendChild(d);
+  });
+}
+
+// ============================================================
+// NEW PLAN
+// ============================================================
+function showNewPlan() {
+  npGoal=""; npProfile={}; npPlanData=null;
+  el("np-goal-input").value="";
+  el("np-q-container").innerHTML="";
+  el("np-preview-phases").innerHTML="";
+  el("np-goal-card").style.opacity="1";
+  el("np-goal-card").style.pointerEvents="auto";
+  el("np-next-btn").disabled=false;
+  if(el("np-gen-btn")) el("np-gen-btn").disabled=false;
+  if(el("np-save-btn")) el("np-save-btn").disabled=false;
+  el("np-toggle").checked=true;
+  npToggleLabel();
+  ["np-q-card","np-preview-wrap","np-goal-err","np-gen-err","np-status-bar","np-save-err","np-save-status"].forEach(hide);
+  goTo("page-new");
+}
+
+function npToggleLabel() {
+  const on = el("np-toggle").checked;
+  el("np-toggle-txt").textContent = on ? "Personalize with a few questions" : "Skip questions — generate directly";
+}
+
+async function npNext() {
+  const goal = val("np-goal-input");
+  if (!goal) return showErr("np-goal-err","Please enter a goal.");
+  hide("np-goal-err"); hide("np-gen-err");
+  npGoal = goal;
+  el("np-next-btn").disabled=true;
+  el("np-goal-card").style.opacity="0.5";
+  el("np-goal-card").style.pointerEvents="none";
+
+  if (!el("np-toggle").checked) {
+    await npStream({});
+    el("np-next-btn").disabled=false;
+    return;
+  }
+
+  setStatus("Analyzing your goal…");
+  try {
+    const r = await api("/api/start","POST",{goal});
+    renderQuestions(r.questions);
+    hide("np-status-bar");
+    show("np-q-card");
+  } catch(e) {
+    showErr("np-goal-err",e.message);
+    el("np-goal-card").style.opacity="1";
+    el("np-goal-card").style.pointerEvents="auto";
+    hide("np-status-bar");
+  }
+  el("np-next-btn").disabled=false;
+}
+
+function renderQuestions(qs) {
+  const c = el("np-q-container");
+  c.innerHTML="";
+  qs.forEach((q,i) => {
+    const d = document.createElement("div");
+    d.className="question-group";
+    d.innerHTML=`<label class="q-label">${q.question}</label><input type="text" id="npq-${i}" data-key="${q.maps_to}" placeholder="Your answer…" />`;
+    c.appendChild(d);
+  });
+}
+
+async function npGenerate() {
+  const profile={};
+  document.querySelectorAll("#np-q-container input").forEach(i => { profile[i.dataset.key]=i.value.trim(); });
+  npProfile=profile;
+  el("np-gen-btn").disabled=true;
+  await npStream(profile);
+  el("np-gen-btn").disabled=false;
+}
+
+async function npStream(profile) {
+  hide("np-gen-err"); setStatus("Building your plan…");
+  try {
+    const res = await fetch("/api/plan/stream",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},
+      body:JSON.stringify({goal:npGoal,profile})
+    });
+    if (!res.ok) { const d=await res.json(); hide("np-status-bar"); showErr("np-gen-err",d.detail||"Error"); return; }
+    const reader=res.body.getReader(), decoder=new TextDecoder();
+    let buf="";
+    while(true) {
+      const {done,value}=await reader.read();
+      if(done) break;
+      buf+=decoder.decode(value,{stream:true});
+      const lines=buf.split("\n"); buf=lines.pop();
+      for(const line of lines) {
+        if(!line.startsWith("data: ")) continue;
+        const payload=line.slice(6);
+        if(payload==="[DONE]") break;
+        const msg=JSON.parse(payload);
+        if(msg.type==="status") setStatus(msg.message);
+        else if(msg.type==="plan") {
+          npPlanData=msg.data;
+          hide("np-status-bar"); hide("np-q-card");
+          renderPreview(msg.data);
+          show("np-preview-wrap");
+        } else if(msg.type==="error") {
+          hide("np-status-bar"); showErr("np-gen-err",msg.message);
+        }
+      }
+    }
+  } catch(e) { hide("np-status-bar"); showErr("np-gen-err","Connection lost. Please try again."); }
+}
+
+function setStatus(msg) { el("np-status-txt").textContent=msg; show("np-status-bar"); }
+
+function renderPreview(plan) {
+  el("np-preview-title").textContent=npGoal;
+  const c=el("np-preview-phases"); c.innerHTML="";
+  plan.phases.forEach((ph,i) => {
+    const card=document.createElement("div"); card.className="phase-wrap";
+    card.style.animationDelay=`${i*0.07}s`;
+
+    const tasks = ph.steps.map(s=>`
+      <div class="task-card">
+        <span style="width:6px;height:6px;border-radius:50%;background:${effortColor(s.effort)};margin-top:7px;flex-shrink:0;"></span>
+        <span class="task-label">${s.task}</span>
+        <span class="effort-badge effort-${s.effort||'medium'}">${effortLabel(s.effort)}</span>
+      </div>`).join("");
+
+    const rituals=(ph.daily_ritual||[]).length ? `
+      <div class="section-head">Daily ritual</div>
+      <div class="ritual-block">
+        ${(ph.daily_ritual).map(r=>`<div class="ritual-line"><span class="ritual-icon">↳</span>${r}</div>`).join("")}
+      </div>` : "";
+
+    const intensifier=ph.weekly_intensifier ? `
+      <div class="section-head">Weekly push</div>
+      <div class="intensifier-card">${ph.weekly_intensifier}</div>` : "";
+
+    const signals=(ph.completion_signals||[]).length ? `
+      <div class="section-head">Done when</div>
+      <div class="signals-block">
+        ${ph.completion_signals.map(s=>`<div class="signal-line"><span class="signal-icon">◎</span>${s}</div>`).join("")}
+      </div>` : "";
+
+    card.innerHTML=`
+      <div class="phase-head" onclick="togglePhase(this)">
+        <span class="phase-index">PHASE ${String(i+1).padStart(2,'0')}</span>
+        <span class="phase-title">${ph.name}</span>
+        <span class="phase-chevron open">▾</span>
+      </div>
+      <div class="phase-body open">
+        <div class="section-head">Tasks</div>
+        <div class="tasks-grid">${tasks}</div>
+        ${rituals}${intensifier}${signals}
+      </div>`;
+    c.appendChild(card);
+  });
+}
+
+async function npSave() {
+  if(!npPlanData) return;
+  show("np-save-status"); hide("np-save-err");
+  el("np-save-btn").disabled=true;
+  try {
+    const r=await api("/api/plans/save","POST",{goal:npGoal,profile:npProfile,plan_data:npPlanData});
+    await showPlan(r.plan_id);
+  } catch(e) { showErr("np-save-err",e.message); hide("np-save-status"); el("np-save-btn").disabled=false; }
+}
+
+// ============================================================
+// PLAN VIEW
+// ============================================================
+async function showPlan(planId) {
+  pvId=planId; pvTasks={};
+  goTo("page-plan");
+  el("pv-title").textContent="Loading…";
+  el("pv-phases").innerHTML=`<div class="status-bar"><div class="spinner"></div><span>Loading…</span></div>`;
+  try {
+    const r=await api(`/api/plans/${planId}`,"GET");
+    renderPlan(r);
+  } catch(e) { el("pv-phases").innerHTML=`<div class="error-box">${e.message}</div>`; }
+}
+
+function renderPlan(res) {
+  const {goal,plan_data,tasks,streak}=res;
+  el("pv-title").textContent=goal;
+
+  pvTasks={};
+  tasks.forEach(t=>{ pvTasks[`${t.phase_index}-${t.task_index}`]=!!t.completed; });
+
+  const total=tasks.length, done=tasks.filter(t=>t.completed).length;
+  const pct=total?Math.round((done/total)*100):0;
+  el("pv-streak").textContent=streak?streak.current_streak:0;
+  el("pv-done").textContent=`${done}/${total}`;
+  el("pv-pct").textContent=`${pct}%`;
+
+  const today=new Date().toISOString().split("T")[0];
+  if(streak&&streak.last_checkin===today) {
+    el("pv-checkin-btn").textContent="✓ Checked in"; el("pv-checkin-btn").disabled=true;
+    el("pv-checkin-text").textContent="You've checked in today — keep it up!";
+  } else {
+    el("pv-checkin-btn").textContent="Check in ✓"; el("pv-checkin-btn").disabled=false;
+    el("pv-checkin-text").innerHTML="<strong>Check in</strong> to keep your streak alive";
+  }
+
+  const c=el("pv-phases"); c.innerHTML="";
+  plan_data.phases.forEach((ph,pi)=>{
+    const phaseDone=ph.steps.filter((_,ti)=>pvTasks[`${pi}-${ti}`]).length;
+    const card=document.createElement("div"); card.className="phase-wrap";
+    card.style.animationDelay=`${pi*0.06}s`;
+
+    const taskHtml=ph.steps.map((s,ti)=>{
+      const done=pvTasks[`${pi}-${ti}`]||false;
+      return `<div class="task-card ${done?'done-card':''}" id="tr-${pi}-${ti}">
+        <div class="task-checkbox ${done?'done':''}" onclick="toggleTask(${pvId},${pi},${ti})"></div>
+        <span class="task-label ${done?'done':''}">${s.task}</span>
+        <span class="effort-badge effort-${s.effort||'medium'}">${effortLabel(s.effort)}</span>
+      </div>`;
+    }).join("");
+
+    const rituals=(ph.daily_ritual||[]).length ? `
+      <div class="section-head">Daily ritual</div>
+      <div class="ritual-block">
+        ${ph.daily_ritual.map(r=>`<div class="ritual-line"><span class="ritual-icon">↳</span>${r}</div>`).join("")}
+      </div>` : "";
+
+    const intensifier=ph.weekly_intensifier ? `
+      <div class="section-head">Weekly push</div>
+      <div class="intensifier-card">${ph.weekly_intensifier}</div>` : "";
+
+    const signals=(ph.completion_signals||[]).length ? `
+      <div class="section-head">Done when</div>
+      <div class="signals-block">
+        ${ph.completion_signals.map(s=>`<div class="signal-line"><span class="signal-icon">◎</span>${s}</div>`).join("")}
+      </div>` : "";
+
+    card.innerHTML=`
+      <div class="phase-head" onclick="togglePhase(this)">
+        <span class="phase-index">PHASE ${String(pi+1).padStart(2,'0')}</span>
+        <span class="phase-title">${ph.name}</span>
+        <span class="phase-meta">${phaseDone}/${ph.steps.length} done</span>
+        <span class="phase-chevron open">▾</span>
+      </div>
+      <div class="phase-body open">
+        <div class="section-head">Tasks</div>
+        <div class="tasks-grid">${taskHtml}</div>
+        ${rituals}${intensifier}${signals}
+      </div>`;
+    c.appendChild(card);
+  });
+}
+
+async function toggleTask(planId,pi,ti) {
+  try {
+    const r=await api("/api/tasks/toggle","POST",{plan_id:planId,phase_index:pi,task_index:ti});
+    pvTasks[`${pi}-${ti}`]=r.completed;
+    const card=el(`tr-${pi}-${ti}`);
+    card.classList.toggle("done-card",r.completed);
+    card.querySelector(".task-checkbox").classList.toggle("done",r.completed);
+    card.querySelector(".task-label").classList.toggle("done",r.completed);
+    updateStats();
+  } catch(e) { console.error(e); }
+}
+
+function updateStats() {
+  const total=Object.keys(pvTasks).length, done=Object.values(pvTasks).filter(Boolean).length;
+  el("pv-done").textContent=`${done}/${total}`;
+  el("pv-pct").textContent=total?`${Math.round((done/total)*100)}%`:"0%";
+}
+
+async function doCheckin() {
+  try {
+    const r=await api(`/api/plans/${pvId}/checkin`,"POST");
+    if(r.already_done) return;
+    el("pv-streak").textContent=r.streak;
+    el("pv-checkin-btn").textContent="✓ Checked in"; el("pv-checkin-btn").disabled=true;
+    el("pv-checkin-text").textContent="You've checked in today — keep it up!";
+  } catch(e) { console.error(e); }
+}
+
+async function confirmDelete() {
+  if(!confirm("Delete this plan? This cannot be undone.")) return;
+  try { await api(`/api/plans/${pvId}`,"DELETE"); showDash(); }
+  catch(e) { alert(e.message); }
+}
+
+// ============================================================
+// ADAPT
+// ============================================================
+function openAdapt() {
+  el("adapt-good").value=""; el("adapt-hard").value="";
+  hide("adapt-err"); hide("adapt-status"); el("adapt-btn").disabled=false;
+  el("adapt-overlay").classList.remove("hidden");
+}
+function closeAdapt() { el("adapt-overlay").classList.add("hidden"); }
+
+async function submitAdapt() {
+  const good=val("adapt-good"), hard=val("adapt-hard");
+  if(!good&&!hard) return showErr("adapt-err","Fill in at least one field.");
+  hide("adapt-err"); show("adapt-status"); el("adapt-btn").disabled=true;
+  try {
+    const taskStates={};
+    Object.entries(pvTasks).forEach(([k,v])=>{ taskStates[k]=v; });
+    el("adapt-status-txt").textContent="Rewriting your remaining phases…";
+    const r=await api(`/api/plans/${pvId}/adapt`,"POST",{task_states:taskStates,going_well:good,difficult:hard});
+    closeAdapt();
+    const full=await api(`/api/plans/${pvId}`,"GET");
+    renderPlan(full);
+    const banner=document.createElement("div");
+    banner.className="success-box";
+    banner.textContent=`✓ Plan adapted — phases ${r.adapted_from_phase+1} onwards have been rewritten.`;
+    el("pv-phases").before(banner);
+    setTimeout(()=>banner.remove(),6000);
+  } catch(e) {
+    showErr("adapt-err",e.message);
+    hide("adapt-status"); el("adapt-btn").disabled=false;
+  }
+}
+
+// ============================================================
+// SHARED
+// ============================================================
+function togglePhase(head) {
+  head.nextElementSibling.classList.toggle("open");
+  head.querySelector(".phase-chevron").classList.toggle("open");
+}
+
+function effortLabel(e) { return {low:"Easy",medium:"Moderate",high:"Hard"}[e]||"Moderate"; }
+function effortColor(e) { return {low:"var(--low)",medium:"var(--medium)",high:"var(--high)"}[e]||"var(--medium)"; }
+
+// ============================================================
+// API + DOM HELPERS
+// ============================================================
+async function api(path,method="GET",body=null) {
+  const opts={method,headers:{"Content-Type":"application/json"}};
+  if(token) opts.headers["Authorization"]=`Bearer ${token}`;
+  if(body) opts.body=JSON.stringify(body);
+  const res=await fetch(path,opts);
+  const data=await res.json();
+  if(!res.ok) throw new Error(data.detail||"Something went wrong.");
+  return data;
+}
+
+function el(id) { return document.getElementById(id); }
+function val(id) { return el(id)?.value.trim()||""; }
+function show(id) { el(id)?.classList.remove("hidden"); }
+function hide(id) { el(id)?.classList.add("hidden"); }
+function showErr(id,msg) { const e=el(id); if(e){e.textContent=msg;e.classList.remove("hidden");} }
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener("DOMContentLoaded",()=>{
+  el("auth-pass").addEventListener("keydown",e=>{if(e.key==="Enter")submitAuth();});
+  el("np-goal-input").addEventListener("keydown",e=>{if(e.key==="Enter")npNext();});
+  if(token&&currentUser) onLogin();
+});
+</script>
+</body>
+</html>
