@@ -49,6 +49,14 @@ class AdaptRequest(BaseModel):
 
 # ===== AUTH ROUTES =====
 
+@app.get("/")
+def home():
+    return {"msg": "running"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+
 @app.post("/api/auth/register")
 def register(req: AuthRequest):
     return register_user(req.username, req.password)
