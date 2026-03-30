@@ -3,7 +3,6 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import Optional
 
 from engine import start_session, generate_plan, generate_plan_stream, adapt_plan
 from core import validate_goal
@@ -13,8 +12,6 @@ from database import (
     delete_plan, get_tasks, toggle_task, get_streak, checkin,
     update_plan_data
 )
-
-from fastapi.middleware.cors import CORSMiddleware
 
 # Init DB on startup
 init_db()
@@ -45,25 +42,11 @@ class TaskToggleRequest(BaseModel):
     task_index: int
 
 class AdaptRequest(BaseModel):
-    task_states: dict  # {"0-0": true, "1-2": false, ...}
+    task_states: dict
     going_well: str
     difficult: str
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # later put your frontend URL
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # ===== AUTH ROUTES =====
-
-@app.get("/")
-def home():
-    return {"msg": "running"}
-
-
 
 @app.post("/api/auth/register")
 def register(req: AuthRequest):
@@ -173,6 +156,8 @@ def do_checkin(plan_id: int, user=Depends(get_current_user)):
     result = checkin(plan_id, user["id"])
     return result
 
+# ===== ADAPT =====
+
 @app.post("/api/plans/{plan_id}/adapt")
 def adapt(plan_id: int, req: AdaptRequest, user=Depends(get_current_user)):
     plan = get_plan(plan_id, user["id"])
@@ -180,7 +165,6 @@ def adapt(plan_id: int, req: AdaptRequest, user=Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Plan not found.")
     try:
         plan_data = json.loads(plan["plan_data"])
-        # Store goal in plan_data so adapt prompt can use it
         plan_data["goal"] = plan["goal"]
         updated_plan, first_incomplete = adapt_plan(
             plan_data, req.task_states, req.going_well, req.difficult
@@ -196,8 +180,3 @@ def adapt(plan_id: int, req: AdaptRequest, user=Depends(get_current_user)):
 
 # ===== STATIC (must be last) =====
 app.mount("/", StaticFiles(directory="web", html=True), name="web")
-
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
