@@ -29,11 +29,11 @@ class GoalRequest(BaseModel):
 
 class PlanRequest(BaseModel):
     goal: str
-    profile: dict
+    profile: str | None = None
 
 class SavePlanRequest(BaseModel):
     goal: str
-    profile: dict
+    profile: str | None = None
     plan_data: dict
 
 class TaskToggleRequest(BaseModel):
@@ -61,6 +61,34 @@ def me(user=Depends(get_current_user)):
     return {"user_id": user["id"], "username": user["username"]}
 
 # ===== GOAL / PLAN GENERATION =====
+
+@app.post("/api/plans/questions")
+def plans_questions(req: GoalRequest, user=Depends(get_current_user)):
+    valid, error = validate_goal(req.goal)
+    if not valid:
+        raise HTTPException(status_code=400, detail=error)
+    try:
+        questions = start_session(req.goal)
+        return {"questions": questions}
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=500, detail="Something went wrong. Please try again.")
+
+@app.post("/api/plans/generate")
+def plans_generate(req: PlanRequest, user=Depends(get_current_user)):
+    valid, error = validate_goal(req.goal)
+    if not valid:
+        raise HTTPException(status_code=400, detail=error)
+    try:
+        profile_dict = {"notes": req.profile} if req.profile else {}
+        plan_data = generate_plan(req.goal, profile_dict)
+        return {"plan_data": plan_data}
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        import traceback; traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Plan generation failed. Please try again.")
 
 @app.post("/api/start")
 def start(req: GoalRequest, user=Depends(get_current_user)):
@@ -90,7 +118,8 @@ def plan_stream(req: PlanRequest, user=Depends(get_current_user)):
 
 @app.post("/api/plans/save")
 def save(req: SavePlanRequest, user=Depends(get_current_user)):
-    plan_id = save_plan(user["id"], req.goal, req.profile, req.plan_data)
+    profile_dict = {"notes": req.profile} if isinstance(req.profile, str) else (req.profile or {})
+    plan_id = save_plan(user["id"], req.goal, profile_dict, req.plan_data)
     return {"plan_id": plan_id}
 
 @app.get("/api/plans")
@@ -108,8 +137,8 @@ def list_plans(user=Depends(get_current_user)):
             "goal": p["goal"],
             "created_at": p["created_at"],
             "phase_count": len(data.get("phases", [])),
-            "tasks_total": total,
-            "tasks_done": done,
+            "total_tasks": total,
+            "done_tasks": done,
             "streak": streak["current_streak"] if streak else 0,
         })
     return {"plans": result}
